@@ -15,12 +15,13 @@ import (
 )
 
 const (
-	apiURL         = "https://jsonplaceholder.typicode.com/posts"
-	mongoURI       = "mongodb://localhost:27017"
-	databaseName   = "test"
-	collectionName = "posts"
+	apiURL         = "https://jsonplaceholder.typicode.com/posts" // API URL to fetch data from
+	mongoURI       = "mongodb://localhost:27017"                  // MongoDB connection URI
+	databaseName   = "test"                                       // Name of the database
+	collectionName = "posts"                                      // Name of the collection
 )
 
+// Function to call the API and fetch data
 func callAPI() ([]interface{}, error) {
 	resp, err := http.Get(apiURL)
 	if err != nil {
@@ -34,6 +35,7 @@ func callAPI() ([]interface{}, error) {
 	return data, err
 }
 
+// Function to compute the hash of a given data
 func computeHash(data map[string]interface{}) string {
 	bytes, err := json.Marshal(data)
 	if err != nil {
@@ -44,26 +46,26 @@ func computeHash(data map[string]interface{}) string {
 }
 
 func main() {
-	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
-	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	err = client.Connect(ctx)
+	// Create a new MongoDB client
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 
 	defer client.Disconnect(ctx)
 
+	// Call the API and fetch data
 	data, err := callAPI()
 	if err != nil {
 		log.Fatalf("Failed to call API: %v", err)
 	}
 
+	// Get the collection from the database
 	coll := client.Database(databaseName).Collection(collectionName)
 
+	// Process each item in the fetched data
 	for _, v := range data {
 		item, ok := v.(map[string]interface{})
 		if !ok {
@@ -71,13 +73,16 @@ func main() {
 			continue
 		}
 
+		// Compute the hash of the item
 		hash := computeHash(item)
 
+		// Define the filter, update, and options for the update operation
 		filter := bson.M{"hash": hash}
 		update := bson.M{"$set": bson.M{"fetched_at": time.Now(), "data": item}}
 		upsert := true
 		updateOptions := options.Update().SetUpsert(upsert)
 
+		// Perform the update operation on the collection
 		_, err := coll.UpdateOne(ctx, filter, update, updateOptions)
 		if err != nil {
 			log.Printf("Failed to update or insert item: %v", err)
