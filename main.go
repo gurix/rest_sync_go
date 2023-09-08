@@ -47,7 +47,9 @@ func computeHash(data map[string]interface{}) string {
 
 func main() {
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Create a new MongoDB client
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
